@@ -19,6 +19,9 @@ start:
     ; enable Streaming SIMD Extensions (SSE) for Rust code:
     call set_up_SSE
 
+    ; Clear the bootloader residue from the VGA text buffer:
+    call clear_vga_text_buffer
+
     ; load the 64-bit GDT:
     lgdt [gdt64.pointer]
 
@@ -31,6 +34,8 @@ start:
     jmp gdt64.code:long_mode_start
 
     ; print "OK" to screen:
+    ; XXX: Not reachable anymore since we jump to long_mode_start
+    ; So, comment out the jmp line to just do this:
     mov dword [0xb8000], 0x2f4b2f4f
     hlt
 
@@ -186,6 +191,21 @@ set_up_SSE:
 .no_SSE:
     mov al, "a"
     jmp error
+
+clear_vga_text_buffer:
+    ; The boot loader (or something else) is leaving behind cruft text.
+    ; Let's clear the VGA text buffer so we start with a blank slate.
+    mov ecx, 0 ; Counter variable
+
+.clear_vga_word:
+    mov eax, 0x00000000
+    mov [0xb8000 + ecx * 4], eax
+
+    inc ecx
+    cmp ecx, 1000 ; 40 2-char words per line * 25 lines
+    jne .clear_vga_word
+
+    ret
 
 section .bss
 align 4096
